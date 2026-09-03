@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@theme {
+  --color-neo-blue: #4A90E2;
+  --color-neo-green: #50E3C2;
+  --color-neo-pink: #FF4D8B;
+  --color-neo-yellow: #F5A623;
+  --color-neo-purple: #9013FE;
+  
+  --shadow-neo: 4px 4px 0px 0px rgba(0, 0, 0, 1);
+  --shadow-neo-hover: 2px 2px 0px 0px rgba(0, 0, 0, 1);
+}
+
+@layer utilities {
+  .neo-box {
+    @apply border-2 border-black bg-white rounded-xl shadow-neo transition-all duration-200;
+  }
+  
+  .neo-box:hover {
+    @apply shadow-neo-hover translate-x-[2px] translate-y-[2px];
+  }
+
+  .neo-box-no-hover {
+    @apply border-2 border-black bg-white rounded-xl shadow-neo;
+  }
+}
