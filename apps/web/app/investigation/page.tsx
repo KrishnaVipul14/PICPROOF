@@ -24,11 +24,43 @@ function generateTxHash(seed: string): string {
   return "0x" + sha256Mock(seed + "tx").slice(0, 64);
 }
 
-const MOCK_MATCHES = [
-  { title: "LinkedIn Profile — Professional Photo", domain: "linkedin.com", sourceType: "Social Media", candidateUrl: "https://linkedin.com", imageUrl: "https://picsum.photos/seed/face1/128/128" },
-  { title: "Twitter / X — Public Post", domain: "x.com", sourceType: "Social Media", candidateUrl: "https://x.com", imageUrl: "https://picsum.photos/seed/face2/128/128" },
-  { title: "News Article — The Hindu", domain: "thehindu.com", sourceType: "News", candidateUrl: "https://thehindu.com", imageUrl: "https://picsum.photos/seed/face3/128/128" },
-];
+function buildMatches(imageDataUrl: string, fileName: string) {
+  const nameStem = fileName.replace(/\.[^.]+$/, "").replace(/[_-]/g, " ");
+  return [
+    {
+      title: `LinkedIn Profile — ${nameStem || "Professional"}`,
+      domain: "linkedin.com",
+      sourceType: "Social Media",
+      candidateUrl: "https://linkedin.com",
+      imageUrl: imageDataUrl,
+      matchScore: 0.97,
+    },
+    {
+      title: `Instagram Post — @${(nameStem || "user").toLowerCase().replace(/\s+/g, "_")}`,
+      domain: "instagram.com",
+      sourceType: "Social Media",
+      candidateUrl: "https://instagram.com",
+      imageUrl: imageDataUrl,
+      matchScore: 0.91,
+    },
+    {
+      title: `News Article — Times of India`,
+      domain: "timesofindia.com",
+      sourceType: "News",
+      candidateUrl: "https://timesofindia.com",
+      imageUrl: imageDataUrl,
+      matchScore: 0.84,
+    },
+    {
+      title: `Twitter / X — Public Post`,
+      domain: "x.com",
+      sourceType: "Social Media",
+      candidateUrl: "https://x.com",
+      imageUrl: imageDataUrl,
+      matchScore: 0.79,
+    },
+  ];
+}
 
 async function runFaceDetect(file: File): Promise<{ detected: boolean; confidence: number; embedding: number[] }> {
   // Use canvas to do basic face-like region detection in browser
@@ -134,12 +166,18 @@ export default function InvestigationPage() {
         },
       }));
 
+      // Read file as data URL so we can embed it in match results
+      const imageDataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target!.result as string);
+        reader.readAsDataURL(file);
+      });
+
       // ── Step 3: Reverse Image Crawl ──
       setStage("searching");
       await sleep(1200);
-      const candidates = MOCK_MATCHES.map((m, i) => ({
+      const candidates = buildMatches(imageDataUrl, file.name).map((m) => ({
         ...m,
-        matchScore: parseFloat((0.97 - i * 0.05).toFixed(2)),
         capturedAt: new Date().toISOString(),
       }));
       setResults((p: any) => ({ ...p, search: { success: true, candidates } }));
@@ -331,27 +369,34 @@ export default function InvestigationPage() {
                 </div>
               </div>
 
-              {results.evidence?.evidence && (
+              {results.search?.candidates && (
                 <div className="neo-box p-6 bg-slate-100 flex flex-col gap-4">
-                  <h3 className="font-black text-xl uppercase bg-yellow-300 inline-block self-start px-2 py-1 border-2 border-black rotate-1">
-                    Top Match Found
+                  <h3 className="font-black text-xl uppercase bg-yellow-300 inline-block self-start px-3 py-1 border-2 border-black rotate-[-1deg]">
+                    {results.search.candidates.length} Matches Found
                   </h3>
-                  <div className="flex gap-4 items-start">
-                    <img
-                      src={results.evidence.evidence.imageUrl}
-                      alt="Match"
-                      className="w-24 h-24 object-cover border-2 border-black rounded-xl flex-shrink-0"
-                    />
-                    <div className="flex flex-col gap-2">
-                      <div className="font-bold text-lg">{results.evidence.evidence.title}</div>
-                      <div className="font-mono text-sm text-slate-600 bg-slate-200 p-2 rounded-lg">
-                        {results.evidence.evidence.sourceType} · {results.evidence.evidence.domain}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {results.search.candidates.map((c: any, i: number) => (
+                      <div key={i} className={`flex gap-3 items-center p-3 border-2 border-black rounded-xl bg-white ${i === 0 ? "ring-2 ring-green-500" : ""}`}>
+                        <img
+                          src={c.imageUrl}
+                          alt="Match"
+                          className="w-16 h-16 object-cover border-2 border-black rounded-lg flex-shrink-0"
+                        />
+                        <div className="flex flex-col gap-1 min-w-0">
+                          {i === 0 && <span className="text-xs font-black text-green-700 uppercase">★ Top Match</span>}
+                          <div className="font-bold text-sm truncate">{c.title}</div>
+                          <div className="font-mono text-xs text-slate-500">{c.domain}</div>
+                          <div className="flex items-center gap-1">
+                            <div className="h-1.5 rounded-full bg-green-500" style={{ width: `${c.matchScore * 100}%`, maxWidth: "80px" }}></div>
+                            <span className="font-mono text-xs font-bold text-green-700">{(c.matchScore * 100).toFixed(0)}%</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="font-mono text-sm">Match: <b className="text-green-700">{(results.evidence.evidence.matchScore * 100).toFixed(0)}%</b></div>
-                    </div>
+                    ))}
                   </div>
                 </div>
               )}
+
 
               <button onClick={() => { setStage("idle"); setResults({}); setFile(null); setPreview(null); setInvestigationId(null); }}
                 className="neo-box px-6 py-3 bg-black text-white font-black uppercase text-sm self-start">
