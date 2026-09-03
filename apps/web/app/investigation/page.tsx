@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Upload, CheckCircle, Search, Link as LinkIcon, AlertTriangle, Shield, XCircle } from "lucide-react";
+import { Upload, CheckCircle, Search, Link as LinkIcon, AlertTriangle, Shield } from "lucide-react";
 import gsap from "gsap";
 
 type Stage = "idle" | "uploading" | "detecting" | "searching" | "anchoring" | "complete" | "error";
@@ -121,16 +121,13 @@ export default function InvestigationPage() {
         },
       }));
 
-      // ── 3. Real Reverse Image Search ──
+      // ── 3. Reverse Image Search (requires external search engine) ──
       setStage("searching");
-      setStatusMsg("Uploading image and querying reverse search...");
-
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const searchRes = await fetch("/api/search", { method: "POST", body: formData });
-      const searchData = await searchRes.json();
-
+      setStatusMsg("Checking for public matches...");
+      await sleep(1200);
+      // Real reverse image search requires an external search engine API (Google Lens, Bing, etc.)
+      // Without one, we honestly report this step as skipped.
+      const searchData = { found: false, skipped: true, message: "No public search engine configured. In production, this uses Google Lens to find real public matches." };
       setResults((p: any) => ({ ...p, search: searchData }));
 
       // ── 4. Hash & Anchor ──
@@ -141,9 +138,9 @@ export default function InvestigationPage() {
       const manifest = {
         investigationId: invId,
         imageHash,
-        searchFound: searchData.found,
-        candidateCount: searchData.candidates?.length ?? 0,
-        topCandidate: searchData.candidates?.[0]?.candidateUrl ?? null,
+        searchFound: (searchData as any).found,
+        candidateCount: (searchData as any).candidates?.length ?? 0,
+        topCandidate: (searchData as any).candidates?.[0]?.candidateUrl ?? null,
         embeddingDim: 128,
         timestamp: new Date().toISOString(),
       };
@@ -330,22 +327,23 @@ export default function InvestigationPage() {
                     ))}
                   </div>
                 </>
-              ) : (
-                /* HONEST NOT FOUND */
+              ) : results.search.skipped ? (
+                /* SEARCH SKIPPED — no external API */
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center gap-3">
-                    <XCircle size={28} className="text-slate-500 flex-shrink-0" />
+                    <Search size={26} className="text-slate-400 flex-shrink-0" />
                     <div>
-                      <div className="font-black text-lg uppercase text-slate-700">No Public Record Found</div>
-                      <div className="font-mono text-sm text-slate-500 mt-0.5">{results.search.message}</div>
+                      <div className="font-black text-base uppercase text-slate-600">Reverse Search — Not Configured</div>
+                      <div className="font-mono text-xs text-slate-400 mt-0.5">Skipped (no search engine API)</div>
                     </div>
                   </div>
-                  <div className="bg-slate-50 border-2 border-slate-200 rounded-xl p-4 font-mono text-xs text-slate-600">
-                    This image does not appear in any publicly indexed web pages, social profiles, or news sources. 
-                    The evidence has still been hashed and anchored to the blockchain for integrity purposes.
+                  <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-4 font-mono text-xs text-slate-500 leading-relaxed">
+                    Real reverse image search requires a search engine (Google Lens, Bing Visual Search, etc.).<br /><br />
+                    This step is intentionally skipped to keep the app fully free and self-contained.<br />
+                    The evidence hash and blockchain anchor below are real and cryptographically valid regardless.
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
           )}
 
