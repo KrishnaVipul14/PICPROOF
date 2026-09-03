@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -48,39 +49,39 @@ export default function InvestigationPage() {
       const uploadData = await uploadRes.json();
       if (!uploadData.success) throw new Error("Upload failed");
       
-      setResults(prev => ({ ...prev, upload: uploadData }));
+      setResults((prev: any) => ({ ...prev, upload: uploadData }));
       
       // 3. Face
       setStage("detecting");
       const faceRes = await fetch(`${API_URL}/api/investigations/${id}/face`, { method: 'POST' });
       const faceData = await faceRes.json();
-      setResults(prev => ({ ...prev, face: faceData }));
+      setResults((prev: any) => ({ ...prev, face: faceData }));
       if (!faceData.faceDetected) throw new Error("No face detected in image");
       
       // 4. Search
       setStage("searching");
       const searchRes = await fetch(`${API_URL}/api/investigations/${id}/search`, { method: 'POST' });
       const searchData = await searchRes.json();
-      setResults(prev => ({ ...prev, search: searchData }));
+      setResults((prev: any) => ({ ...prev, search: searchData }));
       if (!searchData.candidates || searchData.candidates.length === 0) throw new Error("No matches found");
       
       // 5. Evidence
       setStage("matching");
       const evidenceRes = await fetch(`${API_URL}/api/investigations/${id}/evidence`, { method: 'POST' });
       const evidenceData = await evidenceRes.json();
-      setResults(prev => ({ ...prev, evidence: evidenceData }));
+      setResults((prev: any) => ({ ...prev, evidence: evidenceData }));
       
       // 6. Anchor
       setStage("anchoring");
       const anchorRes = await fetch(`${API_URL}/api/investigations/${id}/anchor`, { method: 'POST' });
       const anchorData = await anchorRes.json();
-      setResults(prev => ({ ...prev, anchor: anchorData }));
+      setResults((prev: any) => ({ ...prev, anchor: anchorData }));
       
       setStage("complete");
       
     } catch (err: any) {
       console.error(err);
-      setResults(prev => ({ ...prev, error: err.message }));
+      setResults((prev: any) => ({ ...prev, error: err.message }));
       setStage("error");
     }
   };
