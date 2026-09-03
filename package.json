@@ -1,9 +1,0 @@
-{
-  "name": "trust-trace",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "install": "npm --prefix apps/web install",
-    "build": "npm --prefix apps/web run build"
-  }
-}
