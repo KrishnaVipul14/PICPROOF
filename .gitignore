@@ -1,0 +1,11 @@
+node_modules/
+.venv/
+__pycache__/
+.next/
+dist/
+build/
+coverage/
+temp_uploads/
+.env
+.env.local
+*.log
