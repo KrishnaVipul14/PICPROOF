@@ -12,7 +12,7 @@ from app.services.EvidenceNormalizer import EvidenceNormalizer
 from app.services.EvidenceHasher import EvidenceHasher
 from app.services.BlockchainService import BlockchainService
 
-app = FastAPI(title="TRUST//TRACE API")
+app = FastAPI(title="PICPROOF API")
 
 app.add_middleware(
     CORSMiddleware,

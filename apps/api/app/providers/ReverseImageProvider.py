@@ -62,7 +62,7 @@ class MockReverseImageProvider(ReverseImageProvider):
     def search(self, image_url: str) -> List[Dict[str, Any]]:
         return [{
             "url": "https://x.com/demo_user/status/123456789",
-            "title": "A photo of someone at Hacker House Goa",
+            "title": "A photo of someone at our platform",
             "imageUrl": "https://pbs.twimg.com/media/demo.jpg",
             "sourceType": "X",
             "provider": "Mock Provider"

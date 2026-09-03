@@ -1,8 +1,8 @@
-# TRUST//TRACE
+# PICPROOF
 
 **FROM PIXELS TO PROOF.**
 
-TRUST//TRACE is a pipeline that processes candidate images, extracts biometric facial vectors, corroborates origins via reverse-image search, and anchors cryptographic proofs to an immutable blockchain ledger.
+PICPROOF is a pipeline that processes candidate images, extracts biometric facial vectors, corroborates origins via reverse-image search, and anchors cryptographic proofs to an immutable blockchain ledger.
 
 ## Features
 
@@ -76,4 +76,4 @@ We do NOT store biometric embeddings on the blockchain. Only the SHA-256 digest 
 
 ## Team
 
-Built for Hacker House Goa.
+Built for our platform.

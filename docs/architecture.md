@@ -1,6 +1,6 @@
 # Architecture
 
-TRUST//TRACE uses a modular, multi-tier architecture to securely process photographic evidence and anchor it to an immutable blockchain ledger.
+PICPROOF uses a modular, multi-tier architecture to securely process photographic evidence and anchor it to an immutable blockchain ledger.
 
 ## Monorepo Structure
 

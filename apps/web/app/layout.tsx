@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "TRUST//TRACE | From Pixels To Proof",
+  title: "PICPROOF | From Pixels To Proof",
   description: "Cryptographic notarization of photographic evidence.",
 };
 

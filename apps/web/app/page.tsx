@@ -27,13 +27,13 @@ export default function Home() {
       
       <div className="z-10 max-w-4xl mx-auto flex flex-col items-center gap-8">
         <div className="inline-block px-4 py-2 bg-yellow-300 border-2 border-black rounded-full text-sm font-bold tracking-widest shadow-neo-no-hover uppercase mb-4 rotate-[-2deg]">
-          Hacker House Goa Finalist
+          Cryptographic Integrity Verified
         </div>
         
         <h1 ref={titleRef} className="text-6xl md:text-8xl font-black tracking-tighter uppercase text-black leading-tight">
-          TRUST<br/>
+          PIC<br/>
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-pink-500">
-            //TRACE
+            PROOF
           </span>
         </h1>
         
@@ -43,7 +43,7 @@ export default function Home() {
         
         <div className="flex gap-4 mt-8">
           <Link href="/investigation" className="neo-box px-8 py-4 bg-[#FF4D8B] text-white font-black text-xl uppercase tracking-widest flex items-center gap-2">
-            Start Live Trace &rarr;
+            Start Live Verification &rarr;
           </Link>
           <Link href="/judge" className="neo-box px-8 py-4 bg-white text-black font-black text-xl uppercase tracking-widest">
             Judge Mode

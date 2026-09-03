@@ -100,7 +100,7 @@ export default function InvestigationPage() {
   return (
     <div className="min-h-screen p-8 flex flex-col gap-8 max-w-6xl mx-auto">
       <header className="flex justify-between items-center border-b-4 border-black pb-4">
-        <h1 className="text-3xl font-black tracking-tighter uppercase">TRUST//TRACE</h1>
+        <h1 className="text-3xl font-black tracking-tighter uppercase">PICPROOF</h1>
         <div className="font-mono font-bold bg-black text-white px-4 py-1 rounded-full text-sm">
           {investigationId ? `INV-${investigationId.slice(0,8).toUpperCase()}` : "READY"}
         </div>
@@ -127,7 +127,7 @@ export default function InvestigationPage() {
           
           {preview && stage === "idle" && (
             <button onClick={startTrace} className="neo-box w-full py-4 bg-pink-500 text-white font-black text-xl uppercase tracking-widest">
-              Start Trace &rarr;
+              Start Verification &rarr;
             </button>
           )}
         </div>
