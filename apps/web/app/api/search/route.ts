@@ -1,20 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Upload image to 0x0.st (free anonymous image hosting, no auth needed)
+// Upload image to uguu.se (free anonymous image hosting, works globally)
 async function uploadToTempHost(arrayBuffer: ArrayBuffer, mimeType: string): Promise<string> {
   const formData = new FormData();
   const blob = new Blob([arrayBuffer], { type: mimeType });
-  formData.append("file", blob, "image.jpg");
+  formData.append("files[]", blob, "image.jpg");
 
-  const res = await fetch("https://0x0.st", {
+  const res = await fetch("https://uguu.se/upload.php", {
     method: "POST",
     body: formData,
   });
 
-  if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
-  const url = (await res.text()).trim();
-  if (!url.startsWith("http")) throw new Error("Invalid URL from host");
-  return url;
+  if (!res.ok) {
+    throw new Error(`Upload failed with status ${res.status}`);
+  }
+
+  const data = await res.json();
+  if (data.success && data.files && data.files[0]) {
+    return data.files[0].url;
+  }
+  throw new Error("Upload succeeded but no URL returned in response");
 }
 
 // Query SerpApi Google Lens
