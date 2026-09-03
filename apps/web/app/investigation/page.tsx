@@ -123,16 +123,22 @@ export default function InvestigationPage() {
       setResults((p: any) => ({ ...p, face: { confidence: face.confidence, embeddingDim: 128, embedding: face.embedding } }));
 
       // ── 3. Reverse Search ──
-      setStage("searching"); setStatusMsg("Querying reverse image search...");
-      await sleep(800);
-      // Try real search API route — if no API key configured, returns skipped gracefully
-      let searchData: any = { found: false, skipped: true };
+      setStage("searching"); setStatusMsg("Uploading image & querying Google Lens...");
+      await sleep(500);
+      let searchData: any = { found: false };
       try {
         const fd = new FormData(); fd.append("file", file);
         const sr = await fetch("/api/search", { method: "POST", body: fd });
-        if (sr.ok) searchData = await sr.json();
-      } catch (_) { /* no backend, skip gracefully */ }
+        if (sr.ok) {
+          searchData = await sr.json();
+        } else {
+           searchData = { found: false, message: "Search API returned an error" };
+        }
+      } catch (err: any) {
+        searchData = { found: false, message: "Failed to connect to search API: " + err.message };
+      }
       setResults((p: any) => ({ ...p, search: searchData }));
+
 
       // ── 4. Hash & Anchor ──
       setStage("anchoring"); setStatusMsg("Computing evidence manifest & anchoring...");
