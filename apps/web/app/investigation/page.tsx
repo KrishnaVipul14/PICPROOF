@@ -90,8 +90,8 @@ async function runFaceDetect(file: File): Promise<{ detected: boolean; confidenc
         const rawConf = (skinScore * 0.45) + (brightScore * 0.20) + (sharpScore * 0.20) + (edgeScore * 0.15);
         const confidence = parseFloat(Math.min(0.98, Math.max(0.52, rawConf)).toFixed(4));
 
-        // 6. Estimate face count from skin region clusters (simplified: 1 if skin>10%, 2 if >25%)
-        const faceCount = skinRatio > 0.25 ? 2 : 1;
+        // Face count — pixel sampling cannot reliably detect multiple faces, always report 1
+        const faceCount = 1;
 
         // 7. Build a unique 128-dim embedding derived from pixel samples across the image
         // Sample 128 evenly-spaced points across the face region for unique vectors
