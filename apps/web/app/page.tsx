@@ -38,13 +38,16 @@ export default function Home() {
           From Pixels to Proof. We anchor the truth of photographic evidence to an immutable cryptographic ledger.
         </p>
         
-        <div className="flex gap-4 mt-8">
-          <Link href="/investigation" className="neo-box px-8 py-4 bg-[#FF4D8B] text-white font-black text-xl uppercase tracking-widest flex items-center gap-2">
-            Start Live Verification &rarr;
-          </Link>
-          <Link href="/judge" className="neo-box px-8 py-4 bg-white text-black font-black text-xl uppercase tracking-widest">
-            Judge Mode
-          </Link>
+        <div className="flex flex-col items-center gap-3 mt-8">
+          <div className="flex gap-4">
+            <Link href="/investigation" className="neo-box px-8 py-4 bg-black text-white font-black text-xl uppercase tracking-widest flex items-center gap-2">
+              🔍 Verify an Image →
+            </Link>
+            <Link href="/judge" className="neo-box px-8 py-4 bg-yellow-300 text-black font-black text-xl uppercase tracking-widest flex items-center gap-2">
+              ⚖️ Judge Mode
+            </Link>
+          </div>
+          <p className="text-sm font-mono text-slate-500">Upload any image → detect face → crawl the web → anchor to blockchain</p>
         </div>
       </div>
       
