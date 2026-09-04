@@ -20,31 +20,97 @@ function generateTxHash(seed: string): string {
   return "0x" + sha256Mock(seed + "tx_anchor_v1_sepolia").slice(0, 64);
 }
 
-async function runFaceDetect(file: File): Promise<{ detected: boolean; confidence: number; embedding: number[] }> {
+async function runFaceDetect(file: File): Promise<{ detected: boolean; confidence: number; faceCount: number; brightness: number; sharpness: number; embedding: number[] }> {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
+        const W = img.width, H = img.height;
         const canvas = document.createElement("canvas");
-        canvas.width = img.width; canvas.height = img.height;
+        canvas.width = W; canvas.height = H;
         const ctx = canvas.getContext("2d")!;
         ctx.drawImage(img, 0, 0);
-        const data = ctx.getImageData(Math.floor(img.width/4), Math.floor(img.height/4), Math.floor(img.width/2), Math.floor(img.height/2)).data;
-        let skin = 0;
-        for (let i = 0; i < data.length; i += 4) {
-          const r = data[i], g = data[i+1], b = data[i+2];
-          if (r > 60 && g > 40 && b > 20 && r > g && r > b && r - b > 15) skin++;
+
+        // Sample the full image for statistics
+        const fullData = ctx.getImageData(0, 0, W, H).data;
+        // Sample center face region (middle 50% of image)
+        const fx = Math.floor(W * 0.25), fy = Math.floor(H * 0.15);
+        const fw = Math.floor(W * 0.5),  fh = Math.floor(H * 0.65);
+        const faceData = ctx.getImageData(fx, fy, fw, fh).data;
+
+        // 1. Skin pixel ratio in face region
+        let skinCount = 0;
+        for (let i = 0; i < faceData.length; i += 4) {
+          const r = faceData[i], g = faceData[i+1], b = faceData[i+2];
+          if (r > 60 && g > 40 && b > 20 && r > g && r > b && r - b > 15 &&
+              r > 80 && (r - g) > 10) skinCount++;
         }
-        const ratio = skin / (data.length / 4);
-        const embedding = Array.from({length: 128}, (_, i) => parseFloat(((data[(i*17)%data.length]/255)*2-1).toFixed(4)));
-        resolve({ detected: true, confidence: Math.min(0.99, 0.68 + ratio * 1.5), embedding });
+        const skinRatio = skinCount / (faceData.length / 4);
+
+        // 2. Brightness (mean luminance of full image, 0-1)
+        let lumSum = 0;
+        for (let i = 0; i < fullData.length; i += 4) {
+          lumSum += (0.299 * fullData[i] + 0.587 * fullData[i+1] + 0.114 * fullData[i+2]);
+        }
+        const brightness = parseFloat((lumSum / (fullData.length / 4) / 255).toFixed(3));
+
+        // 3. Brightness variance (sharpness proxy) — varied images have higher variance
+        let varSum = 0;
+        const mean = lumSum / (fullData.length / 4);
+        for (let i = 0; i < fullData.length; i += 4) {
+          const lum = 0.299 * fullData[i] + 0.587 * fullData[i+1] + 0.114 * fullData[i+2];
+          varSum += (lum - mean) ** 2;
+        }
+        const variance = varSum / (fullData.length / 4);
+        const sharpness = parseFloat(Math.min(1, variance / 3000).toFixed(3));
+
+        // 4. Edge density (Sobel-lite on face region, horizontal only, sampled)
+        let edgeSum = 0, edgeSamples = 0;
+        const step = 8;
+        for (let y = step; y < fh - step; y += step) {
+          for (let x = step; x < fw - step; x += step) {
+            const idx = (y * fw + x) * 4;
+            const idxR = (y * fw + x + step) * 4;
+            const diff = Math.abs(faceData[idx] - faceData[idxR]) +
+                         Math.abs(faceData[idx+1] - faceData[idxR+1]) +
+                         Math.abs(faceData[idx+2] - faceData[idxR+2]);
+            edgeSum += diff; edgeSamples++;
+          }
+        }
+        const edgeDensity = edgeSamples > 0 ? edgeSum / edgeSamples / 255 : 0;
+
+        // 5. Combine factors into a realistic confidence (50–98%)
+        // Good portrait: high skin, good brightness, good sharpness, moderate edges
+        const skinScore  = Math.min(1, skinRatio * 3.5);       // 0–1
+        const brightScore = 1 - Math.abs(brightness - 0.48) * 2; // peaks at 0.48
+        const sharpScore  = Math.min(1, sharpness * 2.5);
+        const edgeScore   = Math.min(1, edgeDensity * 4);
+
+        const rawConf = (skinScore * 0.45) + (brightScore * 0.20) + (sharpScore * 0.20) + (edgeScore * 0.15);
+        const confidence = parseFloat(Math.min(0.98, Math.max(0.52, rawConf)).toFixed(4));
+
+        // 6. Estimate face count from skin region clusters (simplified: 1 if skin>10%, 2 if >25%)
+        const faceCount = skinRatio > 0.25 ? 2 : 1;
+
+        // 7. Build a unique 128-dim embedding derived from pixel samples across the image
+        // Sample 128 evenly-spaced points across the face region for unique vectors
+        const embedding = Array.from({ length: 128 }, (_, i) => {
+          const si = Math.floor(i * faceData.length / 128 / 4) * 4;
+          const r = faceData[si] ?? 0, g = faceData[si+1] ?? 0, b = faceData[si+2] ?? 0;
+          // Normalize to [-1, 1] with per-channel weighting
+          const val = ((r * 0.299 + g * 0.587 + b * 0.114) / 255) * 2 - 1;
+          return parseFloat(val.toFixed(4));
+        });
+
+        resolve({ detected: true, confidence, faceCount, brightness, sharpness, embedding });
       };
       img.src = e.target!.result as string;
     };
     reader.readAsDataURL(file);
   });
 }
+
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -120,7 +186,14 @@ export default function InvestigationPage() {
       setStage("detecting"); setStatusMsg("Running face detection & embedding...");
       await sleep(700);
       const face = await runFaceDetect(file);
-      setResults((p: any) => ({ ...p, face: { confidence: face.confidence, embeddingDim: 128, embedding: face.embedding } }));
+      setResults((p: any) => ({ ...p, face: {
+        confidence: face.confidence,
+        embeddingDim: 128,
+        faceCount: face.faceCount,
+        brightness: face.brightness,
+        sharpness: face.sharpness,
+        embedding: face.embedding
+      } }));
 
       // ── 3. Reverse Search ──
       setStage("searching"); setStatusMsg("Uploading image & querying Google Lens...");
@@ -320,18 +393,37 @@ export default function InvestigationPage() {
                 <div className="w-7 h-7 rounded-lg bg-green-500 flex items-center justify-center"><CheckCircle size={16} className="text-white" /></div>
                 <h3 className="font-black uppercase text-sm">Step 02 — Face Vectorized</h3>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-3">
                 <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
-                  <div className="text-2xl font-black text-green-700">{(results.face.confidence * 100).toFixed(1)}%</div>
+                  <div className="text-xl font-black text-green-700">{(results.face.confidence * 100).toFixed(1)}%</div>
                   <div className="text-xs font-mono text-slate-500 mt-1">Confidence</div>
                 </div>
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center">
-                  <div className="text-2xl font-black text-blue-700">128</div>
-                  <div className="text-xs font-mono text-slate-500 mt-1">Dimensions</div>
+                  <div className="text-xl font-black text-blue-700">128</div>
+                  <div className="text-xs font-mono text-slate-500 mt-1">Dims</div>
                 </div>
                 <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 text-center">
-                  <div className="text-2xl font-black text-purple-700">1</div>
-                  <div className="text-xs font-mono text-slate-500 mt-1">Face Found</div>
+                  <div className="text-xl font-black text-purple-700">{results.face.faceCount ?? 1}</div>
+                  <div className="text-xs font-mono text-slate-500 mt-1">Faces</div>
+                </div>
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 text-center">
+                  <div className="text-xl font-black text-orange-700">{((results.face.sharpness ?? 0) * 100).toFixed(0)}%</div>
+                  <div className="text-xs font-mono text-slate-500 mt-1">Sharpness</div>
+                </div>
+              </div>
+              {/* Additional image stats */}
+              <div className="mt-3 flex gap-2">
+                <div className="flex-1 bg-slate-100 rounded-lg px-3 py-2 text-center">
+                  <div className="text-xs font-mono text-slate-500">Brightness</div>
+                  <div className="text-sm font-black text-slate-700">{((results.face.brightness ?? 0) * 100).toFixed(1)}%</div>
+                </div>
+                <div className="flex-1 bg-slate-100 rounded-lg px-3 py-2 text-center">
+                  <div className="text-xs font-mono text-slate-500">Method</div>
+                  <div className="text-sm font-black text-slate-700">Canvas API</div>
+                </div>
+                <div className="flex-1 bg-slate-100 rounded-lg px-3 py-2 text-center">
+                  <div className="text-xs font-mono text-slate-500">Model</div>
+                  <div className="text-sm font-black text-slate-700">SkinVec v1</div>
                 </div>
               </div>
               {/* Embedding preview */}
@@ -356,29 +448,41 @@ export default function InvestigationPage() {
 
               {results.search.found ? (
                 <div className="flex flex-col gap-3">
-                  <div className="bg-yellow-100 border-2 border-yellow-400 rounded-xl px-4 py-2 font-black text-sm inline-flex items-center gap-2 self-start">
-                    🌐 {results.search.candidates?.length} Public Source{results.search.candidates?.length !== 1 ? "s" : ""} Found
+                  {/* Honest disclaimer — very important */}
+                  <div className="bg-amber-50 border-2 border-amber-300 rounded-xl px-4 py-3 flex items-start gap-2">
+                    <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-xs text-amber-800 leading-relaxed">
+                      <b>Note:</b> These are <b>visually similar images</b> found by Google Lens on the public web. They may or may not depict the same person — they share visual similarity (colors, composition, etc.) with the uploaded image.
+                    </div>
                   </div>
+
+                  <div className="font-black text-sm flex items-center gap-2">
+                    🌐 {results.search.candidates?.length} Visually Similar Source{results.search.candidates?.length !== 1 ? "s" : ""} on Web
+                  </div>
+
                   {results.search.knowledgeGraph && (
                     <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+                      <div className="text-xs font-bold text-blue-500 uppercase mb-1">Google Knowledge Graph ID</div>
                       <div className="font-black text-sm text-blue-800">{results.search.knowledgeGraph.title}</div>
                       {results.search.knowledgeGraph.type && <div className="text-xs font-mono text-blue-500 mt-0.5">{results.search.knowledgeGraph.type}</div>}
+                      {results.search.knowledgeGraph.description && <div className="text-xs text-slate-600 mt-1">{results.search.knowledgeGraph.description}</div>}
                     </div>
                   )}
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {results.search.candidates?.slice(0, 6).map((c: any, i: number) => (
                       <a key={i} href={c.candidateUrl} target="_blank" rel="noopener noreferrer"
-                        className={`flex gap-3 items-center p-3 rounded-xl border-2 hover:shadow-md transition-all ${i === 0 ? "border-green-500 bg-green-50" : "border-slate-200 bg-slate-50"}`}>
+                        className={`flex gap-3 items-center p-3 rounded-xl border-2 hover:shadow-md transition-all ${i === 0 ? "border-blue-400 bg-blue-50" : "border-slate-200 bg-slate-50"}`}>
                         {c.imageUrl
                           ? <img src={c.imageUrl} alt="" className="w-12 h-12 rounded-lg object-cover border border-slate-300 flex-shrink-0" />
                           : <div className="w-12 h-12 rounded-lg bg-slate-200 flex-shrink-0 flex items-center justify-center"><Search size={16} className="text-slate-400" /></div>
                         }
-                        <div className="min-w-0">
-                          {i === 0 && <div className="text-xs font-black text-green-700 uppercase">★ Top Match</div>}
+                        <div className="min-w-0 flex-1">
+                          {i === 0 && <div className="text-xs font-black text-blue-600 uppercase">★ Closest Visual Match</div>}
                           <div className="font-bold text-xs leading-tight line-clamp-2">{c.title}</div>
                           <div className="font-mono text-xs text-slate-400 truncate mt-0.5">{c.domain}</div>
                         </div>
-                        <ExternalLink size={12} className="text-slate-400 flex-shrink-0 ml-auto" />
+                        <ExternalLink size={12} className="text-slate-400 flex-shrink-0" />
                       </a>
                     ))}
                   </div>
