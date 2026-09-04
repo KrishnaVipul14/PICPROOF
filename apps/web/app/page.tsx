@@ -27,14 +27,11 @@ export default function Home() {
       
       <div className="z-10 max-w-4xl mx-auto flex flex-col items-center gap-8">
         <div className="inline-block px-4 py-2 bg-yellow-300 border-2 border-black rounded-full text-sm font-bold tracking-widest shadow-neo-no-hover uppercase mb-4 rotate-[-2deg]">
-          Cryptographic Integrity Verified
+          Hacker House Goa · Task 3
         </div>
         
-        <h1 ref={titleRef} className="text-6xl md:text-8xl font-black tracking-tighter uppercase text-black leading-tight">
-          PIC<br/>
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-pink-500">
-            PROOF
-          </span>
+        <h1 ref={titleRef} className="text-6xl md:text-8xl font-black tracking-tighter uppercase text-black leading-none">
+          PIC<span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-pink-500">PROOF</span>
         </h1>
         
         <p className="text-xl md:text-2xl font-medium max-w-2xl text-slate-800 bg-white/80 p-4 rounded-xl border-2 border-black shadow-neo">
