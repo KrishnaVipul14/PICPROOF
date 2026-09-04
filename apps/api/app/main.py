@@ -1,5 +1,6 @@
 import os
 import uuid
+os.environ["PYTHONIOENCODING"] = "utf-8"
 import hashlib
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware

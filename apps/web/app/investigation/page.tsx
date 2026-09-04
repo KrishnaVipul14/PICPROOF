@@ -125,6 +125,59 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+function VerifyButton({ evidenceHash }: { evidenceHash: string }) {
+  const [state, setState] = useState<"idle" | "loading" | "verified" | "failed">("idle");
+  const [result, setResult] = useState<any>(null);
+
+  const verify = async () => {
+    setState("loading");
+    try {
+      const res = await fetch("/api/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ evidenceHash }),
+      });
+      const data = await res.json();
+      setResult(data);
+      setState(data.verified ? "verified" : "failed");
+    } catch {
+      setState("failed");
+      setResult({ error: "Could not connect to verify API" });
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        onClick={verify}
+        disabled={state === "loading"}
+        className={`w-full py-3 rounded-xl text-sm font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
+          state === "verified" ? "bg-green-400 text-black" :
+          state === "failed"   ? "bg-red-500 text-white" :
+          "bg-white text-black hover:bg-green-300"
+        }`}
+      >
+        {state === "loading" ? <><RefreshCw size={14} className="animate-spin" /> Verifying...</> :
+         state === "verified" ? <><CheckCircle size={14} /> Hash Verified on Chain ✓</> :
+         state === "failed"   ? <>✗ Verification Failed</> :
+         <>🔍 Re-Verify on Chain</>}
+      </button>
+      {state === "verified" && result && (
+        <div className="bg-green-400/20 border border-green-400/40 rounded-xl p-3 text-xs font-mono text-green-300 leading-relaxed">
+          ✓ Hash confirmed on-chain<br />
+          Investigation: {result.investigationId}<br />
+          Anchored at: {result.anchoredAt}
+        </div>
+      )}
+      {state === "failed" && result && (
+        <div className="bg-red-500/20 border border-red-400/30 rounded-xl p-3 text-xs font-mono text-red-300">
+          {result.error || result.message || "Hash not found on chain"}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const STEP_META = [
   { key: "uploading" as Stage, icon: Upload, label: "Ingest", num: "01" },
   { key: "detecting" as Stage, icon: Shield, label: "Vectorize", num: "02" },
@@ -214,8 +267,8 @@ export default function InvestigationPage() {
 
 
       // ── 4. Hash & Anchor ──
-      setStage("anchoring"); setStatusMsg("Computing evidence manifest & anchoring...");
-      await sleep(1200);
+      setStage("anchoring"); setStatusMsg("Computing SHA-256 manifest...");
+      await sleep(600);
       const manifest = {
         investigationId: invId, imageHash,
         searchFound: !!searchData.found,
@@ -223,11 +276,32 @@ export default function InvestigationPage() {
         embeddingDim: 128, ts: new Date().toISOString(),
       };
       const evidenceHash = sha256Mock(JSON.stringify(manifest));
-      const txHash = generateTxHash(evidenceHash);
-      const blockNumber = 18_500_000 + (Math.abs(parseInt(evidenceHash.slice(0, 8), 16)) % 200_000);
-      setResults((p: any) => ({ ...p, evidenceHash, anchor: { txHash, blockNumber, network: "Sepolia", evidenceHash } }));
+
+      setStatusMsg("Anchoring to blockchain...");
+      let anchorData: any = { txHash: null, blockNumber: null, network: "Hardhat Local", evidenceHash, error: null };
+
+      try {
+        const anchorRes = await fetch("/api/anchor", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ evidenceHash, investigationId: invId }),
+        });
+        const anchorJson = await anchorRes.json();
+        if (anchorRes.ok && anchorJson.success) {
+          anchorData = { ...anchorData, ...anchorJson, realChain: true };
+        } else {
+          anchorData.error = anchorJson.hint || anchorJson.error || "Blockchain unavailable";
+          anchorData.realChain = false;
+        }
+      } catch {
+        anchorData.error = "Could not connect to blockchain API";
+        anchorData.realChain = false;
+      }
+
+      setResults((p: any) => ({ ...p, evidenceHash, anchor: anchorData }));
 
       setStage("complete"); setStatusMsg(""); setProcessing(false);
+
     } catch (err: any) {
       setResults((p: any) => ({ ...p, error: err.message }));
       setStage("error"); setStatusMsg(""); setProcessing(false);
@@ -520,36 +594,69 @@ export default function InvestigationPage() {
           {stage === "complete" && results.anchor && (
             <div className="neo-box p-5 bg-black text-white">
               <div className="flex items-center gap-2 mb-5">
-                <div className="w-7 h-7 rounded-lg bg-green-400 flex items-center justify-center"><CheckCircle size={16} className="text-black" /></div>
-                <h3 className="font-black uppercase text-sm">Step 04 — Blockchain Anchored ✓</h3>
-                <span className="ml-auto text-xs font-mono bg-green-400 text-black px-2 py-0.5 rounded-full font-bold">{results.anchor.network}</span>
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${results.anchor.realChain ? "bg-green-400" : "bg-orange-400"}`}>
+                  {results.anchor.realChain ? <CheckCircle size={16} className="text-black" /> : <AlertTriangle size={16} className="text-black" />}
+                </div>
+                <h3 className="font-black uppercase text-sm">
+                  Step 04 — {results.anchor.realChain ? "Anchored to Blockchain ✓" : "Evidence Hashed (Blockchain Offline)"}
+                </h3>
+                <span className={`ml-auto text-xs font-mono px-2 py-0.5 rounded-full font-bold ${results.anchor.realChain ? "bg-green-400 text-black" : "bg-orange-400 text-black"}`}>
+                  {results.anchor.network}
+                </span>
               </div>
 
-              <div className="flex flex-col gap-3">
-                <div className="bg-white/10 rounded-xl p-4">
-                  <div className="text-xs font-bold text-green-400 uppercase mb-2 flex items-center gap-1">
-                    Transaction Hash
-                    <CopyButton text={results.anchor.txHash} />
-                  </div>
-                  <div className="font-mono text-xs text-white/90 break-all">{results.anchor.txHash}</div>
+              {/* Show error hint if blockchain unavailable */}
+              {results.anchor.error && (
+                <div className="bg-orange-500/20 border border-orange-400/30 rounded-xl p-3 mb-4 text-xs font-mono text-orange-300">
+                  ⚠ {results.anchor.error}
                 </div>
+              )}
+
+              <div className="flex flex-col gap-3">
+                {/* Real TX Hash (if anchored) */}
+                {results.anchor.txHash && (
+                  <div className="bg-white/10 rounded-xl p-4">
+                    <div className="text-xs font-bold text-green-400 uppercase mb-2 flex items-center gap-1">
+                      Real Transaction Hash <CopyButton text={results.anchor.txHash} />
+                    </div>
+                    <div className="font-mono text-xs text-white/90 break-all">{results.anchor.txHash}</div>
+                    {results.anchor.blockNumber && (
+                      <div className="font-mono text-xs text-white/40 mt-1">Block #{results.anchor.blockNumber}</div>
+                    )}
+                  </div>
+                )}
+
+                {/* Evidence SHA-256 — always shown */}
                 <div className="bg-white/10 rounded-xl p-4">
                   <div className="text-xs font-bold text-blue-400 uppercase mb-2 flex items-center gap-1">
-                    Evidence SHA-256
-                    <CopyButton text={results.evidenceHash} />
+                    Evidence SHA-256 <CopyButton text={results.evidenceHash} />
                   </div>
                   <div className="font-mono text-xs text-white/90 break-all">{results.evidenceHash}</div>
                 </div>
-                <div className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-3">
-                  <div className="font-mono text-xs text-white/60">Block <b className="text-white">#{results.anchor.blockNumber?.toLocaleString()}</b></div>
-                  <a
-                    href={`https://sepolia.etherscan.io/tx/${results.anchor.txHash}`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs font-black text-green-400 hover:text-green-300 transition-colors"
-                  >
-                    View on Etherscan <ExternalLink size={11} />
-                  </a>
-                </div>
+
+                {/* Contract address */}
+                {results.anchor.contractAddress && (
+                  <div className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-3">
+                    <div className="font-mono text-xs text-white/50">
+                      Contract: <span className="text-white/80">{results.anchor.contractAddress}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* ✅ VERIFY ON CHAIN button */}
+                {results.anchor.realChain && (
+                  <VerifyButton evidenceHash={results.evidenceHash} />
+                )}
+
+                {/* If blockchain offline, show how to start it */}
+                {!results.anchor.realChain && (
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-xs font-mono text-white/50 leading-relaxed">
+                    To enable real blockchain anchoring, run in a terminal:<br />
+                    <span className="text-green-400">cd contracts</span><br />
+                    <span className="text-green-400">npx hardhat node</span>  ← Terminal 1<br />
+                    <span className="text-green-400">npx hardhat run scripts/deploy.ts --network localhost</span>  ← Terminal 2
+                  </div>
+                )}
               </div>
 
               <button onClick={reset}
@@ -558,6 +665,7 @@ export default function InvestigationPage() {
               </button>
             </div>
           )}
+
 
           {/* Idle state placeholder */}
           {stage === "idle" && !results.upload && (
